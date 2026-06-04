@@ -1,0 +1,50 @@
+HQ_SRV
+---------------------------------------------------
+apt-get install -y mdamd
+mdadm --create /dev/md0 -l ? -n ? /dev/sdb /dev/sdc
+mdadm --detail --scan --versobe | tee -a /etc/mdadm.conf
+mkfs.ext4 /dev/md0
+vim /ets/fstab
+/dev/md0 /raid ext4 defaults 0 0
+mkdir /raid
+mount -av
+lsblk
+
+HQ-SRV 
+---------------------------------------------------
+apt-get install nfs-server -y
+mkdir /raid/nfs
+chmod -R 777 /raid/nfs
+vim /etc/exports
+/raid/nfs IP200vlan/maska(rw)
+export -arv
+systemctl enable --now nfs-server
+
+HQ-CLI
+---------------------------------------------------
+mkdir /mnt/nfs
+chmod -R 777 /mnt/nfs
+vim /etc/fstab
+192.168.100.2 (IP VLAN 100):/raid/nfs /mnt/nfs nfs defaults 0 0
+df -h
+
+ISP
+---------------------------------------------------
+apt-get install chrony -y
+vim /etc/chrony.conf
+-# local stratum
++# pool pool.ntp.org irbust
++ server ntp0.ntp-servers.net irbust prefer minstratum 4 
++ allow 0.0.0.0/0
+systemctl restart chronyd
+
+VSE CAR
+---------------------------------------------------
+apt-get update && apt-get install chrony -y
+vim /etc/chrony.conf
++# pool pool.ntp.org irbust
+server 172.16.1.1 irbust (1.1 - HQ, 2.1 - BR)
+systemctl restart chronyd
+---------------------------------------------------
+HQ-CLI - chronyc sources (ip isp)
+SRV - chronyc clients (2ip)
