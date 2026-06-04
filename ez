@@ -1,22 +1,26 @@
-HQ_SRV
+11. HQ-CLI
+---------------------------------------------------
+apt-get update && apt-get install yandex-browser 
+yandex-browser-stable --no-sandbox
+
+2. HQ_SRV
 ---------------------------------------------------
 apt-get install -y mdamd
-mdadm --create /dev/md0 -l ? -n ? /dev/sdb /dev/sdc
+mdadm --create /dev/md0? -l ? -n ? /dev/sdb /dev/sdc
 mdadm --detail --scan --versobe | tee -a /etc/mdadm.conf
 mkfs.ext4 /dev/md0
 vim /ets/fstab
-/dev/md0 /raid ext4 defaults 0 0
+/dev/md0? /raid ext4 defaults 0 0
 mkdir /raid
 mount -av
 lsblk
 
-HQ-SRV 
+3. HQ-SRV 
 ---------------------------------------------------
 apt-get install nfs-server -y
 mkdir /raid/nfs
 chmod -R 777 /raid/nfs
-vim /etc/exports
-/raid/nfs IP200vlan/maska(rw)
+echo ''/raid/nfs 192.168.200.0/24(rw)' >> /etc/exports
 export -arv
 systemctl enable --now nfs-server
 
@@ -24,15 +28,16 @@ HQ-CLI
 ---------------------------------------------------
 mkdir /mnt/nfs
 chmod -R 777 /mnt/nfs
-vim /etc/fstab
-192.168.100.2 (IP VLAN 100):/raid/nfs /mnt/nfs nfs defaults 0 0
+echo '192.168.100.2:/raid/nfs /mnt/nfs nfs defaults 0 0' >> /etc/fstab
+mount -av
+touch /mnt/nfs/test
 df -h
 
-ISP
+4. ISP
 ---------------------------------------------------
 apt-get install chrony -y
 vim /etc/chrony.conf
--# local stratum
+-# local stratum ?
 +# pool pool.ntp.org irbust
 + server ntp0.ntp-servers.net irbust prefer minstratum 4 
 + allow 0.0.0.0/0
@@ -48,3 +53,30 @@ systemctl restart chronyd
 ---------------------------------------------------
 HQ-CLI - chronyc sources (ip isp)
 SRV - chronyc clients (2ip)
+
+8. HQ-RTR
+---------------------------------------------------
+iptables -t nat -A PREROUTING -i ens18 -p tcp --dport 2026? -j DNAT --to-destination 192.168.100.2:2026?
+iptables -t nat -A PREROUTING -i ens18 -p tcp --dport 8080? -j DNAT --to-destination 192.168.100.2:8080?
+
+iptables-save >> /etc/sysconfig/iptables
+
+BR-RTR
+---------------------------------------------------
+iptables -t nat -A PREROUTING -i ens18 -p tcp --dport 2026? -j DNAT --to-destination 192.168.100.2:2026?
+iptables -t nat -A PREROUTING -i ens18 -p tcp --dport 8080? -j DNAT --to-destination 192.168.100.2:8080?
+
+5. BR-SRV
+---------------------------------------------------
+apt-get update && apt-get install ansible sshpass -y
+vim /etc/ansible/hosts
+(посмотреть все ip машин)
+br-rtr ansible_host=172.16.1.1 ansible_user=net_admin ansible_password=P@ssword
+hq-rtr ansible_host=10.10.10.1 ansible_user=net_admin ansible_password=P@ssword
+hq-cli ansible_host=192.168.200.2 ansible_user=user ansible_password=resu
+hq-srv ansible_host=192.168.100.2 ansible_user=sshuser ansible_password=P@ssword ansible_port=2026?
+vim  /etc/ansible/ansible.cfg
++# host_key_checking = False
+cd /etc/ansible/
+ansible all -m ping
+если выводит красный текст, то во всех используемых машинах systemctl restart sshd
